@@ -1,3 +1,6 @@
+import json
+from datetime import datetime
+
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from rest_framework import status
@@ -5,6 +8,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import InvalidToken
 from rest_framework_simplejwt.tokens import RefreshToken
+
+from Authentication.kafka_producer import send_event_to_kafka
 
 
 class RegisterView(APIView):
@@ -19,7 +24,17 @@ class RegisterView(APIView):
             return Response({"error": "Username already exists."}, status=status.HTTP_400_BAD_REQUEST)
 
         user = User.objects.create_user(username=username, password=password)
+
+        # Отправляем событие в Kafka
+        event = {
+            "event_type": "user_registration",
+            "username": username,
+            "timestamp": str(datetime.now())
+        }
+        send_event_to_kafka("user-events", json.dumps(event))
+
         return Response({"message": "User created successfully."}, status=status.HTTP_201_CREATED)
+
 
 class LogoutView(APIView):
     def post(self, request):
@@ -35,6 +50,14 @@ class LogoutView(APIView):
                 token.blacklist()
             except InvalidToken:
                 pass
+
+        # Отправляем событие в Kafka
+        event = {
+            "event_type": "user_logout",
+            "username": request.user.username if request.user.is_authenticated else "unknown",
+            "timestamp": str(datetime.now())
+        }
+        send_event_to_kafka("user-events", json.dumps(event))
 
         return response
 
@@ -67,6 +90,15 @@ class LoginView(APIView):
             secure=True,
             samesite='Strict'
         )
+
+        # Отправляем событие в Kafka
+        event = {
+            "event_type": "user_login",
+            "username": username,
+            "timestamp": str(datetime.now())
+        }
+        send_event_to_kafka("user-events", json.dumps(event))
+
         return response
 
 
