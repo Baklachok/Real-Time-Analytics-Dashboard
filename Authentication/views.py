@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime
 
 from django.contrib.auth import authenticate
@@ -11,6 +12,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from Authentication.kafka_producer import send_event_to_kafka
 
+
+logger = logging.getLogger(__name__)
 
 class RegisterView(APIView):
     def post(self, request):
@@ -31,7 +34,10 @@ class RegisterView(APIView):
             "username": username,
             "timestamp": str(datetime.now())
         }
+
+        logger.debug("Attempting to send Kafka event...")
         send_event_to_kafka("user-events", json.dumps(event))
+        logger.info("Kafka event sent.")
 
         return Response({"message": "User created successfully."}, status=status.HTTP_201_CREATED)
 

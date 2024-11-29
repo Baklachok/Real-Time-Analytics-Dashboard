@@ -25,6 +25,7 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
   backend:
     image: baklachok/analytics_project:latest
@@ -34,6 +35,36 @@ services:
     env_file: .env
     depends_on:
       - kafka
+
+  celery:
+    image: baklachok/analytics_project:latest
+    container_name: celery
+    command: celery -A analytics_project worker --loglevel=info
+    depends_on:
+      - backend
+      - redis
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    networks:
+      - default
+
+  kafka_consumer:
+    image: baklachok/analytics_project:latest
+    container_name: kafka_consumer
+    command: python manage.py shell -c "from Authentication.kafka_consumer import consume_events; consume_events()"
+    env_file: .env
+    depends_on:
+      - backend
+      - kafka
+    networks:
+      - default
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
 
 networks:
   default:
