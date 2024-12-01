@@ -8,7 +8,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import InvalidToken
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 
 from Authentication.kafka_producer import send_event_to_kafka
 
@@ -102,37 +102,56 @@ class LoginView(APIView):
         return response
 
 
+
 class LogoutView(APIView):
     """
     Обрабатывает выход пользователя.
     """
     def post(self, request):
+        # Удаляем куки
         response = Response({"message": "Successfully logged out"}, status=status.HTTP_200_OK)
-
         response.delete_cookie('access_token')
         response.delete_cookie('refresh_token')
 
+        username = None
+
+        # Проверяем наличие access_token в куках
+        access_token = request.COOKIES.get('access_token')
+        if access_token:
+            try:
+                # Декодируем токен для извлечения имени пользователя
+                token = AccessToken(access_token)
+                user_id = token.get('user_id')
+                username = User.objects.get(id=user_id).username if user_id else None
+                logger.info(f"Имя пользователя из токена: {username}")
+            except Exception as e:
+                logger.warning(f"Не удалось декодировать токен: {e}")
+
+        # Добавляем refresh_token в черный список, если он есть
         refresh_token = request.COOKIES.get('refresh_token')
         if refresh_token:
             try:
                 token = RefreshToken(refresh_token)
                 token.blacklist()
-                logger.info(f"Токен добавлен в черный список для пользователя: {request.user.username}.")
+                if username:
+                    logger.info(f"Токен добавлен в черный список для пользователя: {username}.")
             except InvalidToken:
-                logger.warning("Попытка выхода с недействительным токеном.")
+                logger.warning("Попытка выхода с недействительным refresh_token.")
 
-        # Отправляем событие в Kafka
-        event = {
-            "event_type": "user_logout",
-            "username": request.user.username if request.user.is_authenticated else "unknown",
-            "timestamp": datetime.utcnow().isoformat()
-        }
-
-        try:
-            send_event_to_kafka("user-events", json.dumps(event))
-            logger.info(f"Событие выхода отправлено в Kafka: {event['username']}.")
-        except Exception as e:
-            logger.error(f"Ошибка отправки события выхода в Kafka: {e}")
+        # Отправляем событие в Kafka только если пользователь аутентифицирован
+        if username:
+            event = {
+                "event_type": "user_logout",
+                "username": username,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            try:
+                send_event_to_kafka("user-events", json.dumps(event))
+                logger.info(f"Событие выхода отправлено в Kafka: {username}.")
+            except Exception as e:
+                logger.error(f"Ошибка отправки события выхода в Kafka: {e}")
+        else:
+            logger.info("Событие выхода не отправлено, так как пользователь не аутентифицирован.")
 
         return response
 
