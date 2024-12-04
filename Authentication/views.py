@@ -8,12 +8,13 @@ from django.contrib.auth.models import User
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.exceptions import InvalidToken
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 
 from Authentication.kafka_producer import send_event_to_kafka
 
 logger = logging.getLogger(__name__)
+
 
 def send_kafka_event(event_type: str, username: str) -> None:
     """Отправляет событие в Kafka."""
@@ -123,9 +124,12 @@ class RefreshTokenView(APIView):
         try:
             refresh = RefreshToken(refresh_token)
             response = Response({"message": "Token refreshed"})
-            response.set_cookie("access_token", str(refresh.access_token), httponly=True, secure=True, samesite="Strict")
+            response.set_cookie("access_token", str(refresh.access_token), httponly=True, secure=True,
+                                samesite="Strict")
             logger.info("Токен доступа успешно обновлен.")
             return response
         except InvalidToken:
             logger.warning("Обновление токена не удалось: недействительный refresh_token.")
             return Response({"error": "Invalid refresh token"}, status=status.HTTP_401_UNAUTHORIZED)
+        except TokenError:
+            return Response({'error': 'Недействительный или истекший refresh-токен'}, status=401)
