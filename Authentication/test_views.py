@@ -57,7 +57,7 @@ class AuthenticationTests(APITestCase):
     def test_login_user_with_missing_credentials(self):
         """Тест входа без указания имени пользователя или пароля"""
         response = self.client.post('/api/auth/login/', {})
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('error', response.data)
 
     def test_logout_user(self):

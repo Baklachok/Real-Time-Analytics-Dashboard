@@ -38,7 +38,7 @@ class RegisterView(APIView):
         password = request.data.get("password")
 
         if not username or not password:
-            logger.warning("Попытка регистрации без указания имени пользователя или пароля.")
+            logger.warning("Регистрация без имени пользователя или пароля.")
             return Response({"error": "Username and password are required."}, status=status.HTTP_400_BAD_REQUEST)
 
         if User.objects.filter(username=username).exists():
@@ -51,7 +51,7 @@ class RegisterView(APIView):
             send_kafka_event("user_registration", username)
             return Response({"message": "User created successfully."}, status=status.HTTP_201_CREATED)
         except Exception as e:
-            logger.error(f"Ошибка создания пользователя {username}: {e}")
+            logger.exception(f"Ошибка создания пользователя {username}: {e}")
             return Response({"error": "Error creating user."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -61,6 +61,10 @@ class LoginView(APIView):
     def post(self, request) -> Response:
         username = request.data.get("username")
         password = request.data.get("password")
+
+        if not username or not password:
+            logger.warning("Вход без имени пользователя или пароля.")
+            return Response({"error": "Username and password are required."}, status=status.HTTP_400_BAD_REQUEST)
 
         user = authenticate(request, username=username, password=password)
         if not user:
@@ -84,32 +88,26 @@ class LogoutView(APIView):
         response.delete_cookie("access_token")
         response.delete_cookie("refresh_token")
 
-        username: Optional[str] = None
-        access_token = request.COOKIES.get("access_token")
-        if access_token:
-            try:
-                token = AccessToken(access_token)
-                user_id = token.get("user_id")
-                username = User.objects.get(id=user_id).username
-                logger.info(f"Пользователь {username} успешно извлечен из токена.")
-            except Exception as e:
-                logger.warning(f"Ошибка при извлечении пользователя из токена: {e}")
-
-        refresh_token = request.COOKIES.get("refresh_token")
-        if refresh_token:
-            try:
-                token = RefreshToken(refresh_token)
-                token.blacklist()
-                logger.info(f"Refresh-токен добавлен в черный список для пользователя {username}.")
-            except InvalidToken:
-                logger.warning("Попытка выхода с недействительным refresh_token.")
-
+        username = self._get_username_from_token(request)
         if username:
             send_kafka_event("user_logout", username)
         else:
             logger.info("Событие выхода не отправлено, так как пользователь не аутентифицирован.")
 
         return response
+
+    @staticmethod
+    def _get_username_from_token(request) -> Optional[str]:
+        """Получает имя пользователя из токена."""
+        access_token = request.COOKIES.get("access_token")
+        if access_token:
+            try:
+                token = AccessToken(access_token)
+                user_id = token.get("user_id")
+                return User.objects.get(id=user_id).username
+            except Exception as e:
+                logger.warning(f"Ошибка извлечения пользователя из токена: {e}")
+        return None
 
 
 class RefreshTokenView(APIView):
@@ -124,12 +122,9 @@ class RefreshTokenView(APIView):
         try:
             refresh = RefreshToken(refresh_token)
             response = Response({"message": "Token refreshed"})
-            response.set_cookie("access_token", str(refresh.access_token), httponly=True, secure=True,
-                                samesite="Strict")
+            response.set_cookie("access_token", str(refresh.access_token), httponly=True, secure=True, samesite="Strict")
             logger.info("Токен доступа успешно обновлен.")
             return response
-        except InvalidToken:
-            logger.warning("Обновление токена не удалось: недействительный refresh_token.")
-            return Response({"error": "Invalid refresh token"}, status=status.HTTP_401_UNAUTHORIZED)
-        except TokenError:
-            return Response({'error': 'Недействительный или истекший refresh-токен'}, status=401)
+        except (InvalidToken, TokenError) as e:
+            logger.warning(f"Обновление токена не удалось: {e}")
+            return Response({"error": "Invalid or expired refresh token"}, status=status.HTTP_401_UNAUTHORIZED)
