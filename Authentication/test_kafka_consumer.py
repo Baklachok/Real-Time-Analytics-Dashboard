@@ -1,95 +1,56 @@
-import logging
-import unittest
-from unittest.mock import MagicMock, patch
 
+import unittest
+from unittest.mock import patch, MagicMock
 from Authentication.kafka_consumer import consume_events
 
-
-logger = logging.getLogger(__name__)
-
-class KafkaConsumerTests(unittest.TestCase):
-    @patch("Authentication.kafka_consumer.Consumer")
-    @patch("Authentication.kafka_consumer.logger")
-    def test_consumer_handles_no_messages(self, MockLogger, MockConsumer):
-        """Тест обработки ситуации без сообщений."""
-        # Создаем мок-объект Consumer
-        mock_consumer = MagicMock()
-        logger.debug(f"MockConsumer: {mock_consumer}")
-        logger.debug(f"Poll calls: {mock_consumer.poll.mock_calls}")
-        mock_consumer.poll.return_value = None  # Симулируем отсутствие сообщений
-        logger.debug(f"MockConsumer: {mock_consumer}")
-        logger.debug(f"Poll calls: {mock_consumer.poll.mock_calls}")
-        MockConsumer.return_value = mock_consumer
-
-        def should_stop_after_poll():
-            # Завершаем цикл после первого вызова poll
-            yield False
-            yield True
-
-        should_stop_gen = should_stop_after_poll()
-
-        def should_stop():
-            return next(should_stop_gen)
-
-        # Вызываем тестируемую функцию
-        consume_events(should_stop=should_stop)
-
-        # Проверяем, что poll был вызван хотя бы один раз
-        mock_consumer.poll.assert_called_once()
-        logger.debug(f"MockConsumer: {mock_consumer}")
-        logger.debug(f"Poll calls: {mock_consumer.poll.mock_calls}")
+class TestKafkaConsumer(unittest.TestCase):
 
     @patch("Authentication.kafka_consumer.Consumer")
-    @patch("Authentication.kafka_consumer.logger")
     @patch("Authentication.kafka_consumer.process_kafka_event")
-    def test_consumer_process_message(self, MockProcessKafkaEvent, MockLogger, MockConsumer):
-        """Тест на обработку сообщений."""
-        mock_consumer = MagicMock()
+    def test_consume_valid_message(self, mock_process_kafka_event, mock_consumer):
         mock_message = MagicMock()
-        mock_message.value.return_value = b'{"event_type": "test_event", "username": "test_user"}'
+        mock_message.value.return_value = b'{"event_id": "123", "event_type": "user_login", "username": "test_user"}'
         mock_message.error.return_value = None
-        mock_consumer.poll.side_effect = [mock_message, None]
-        MockConsumer.return_value = mock_consumer
 
-        def should_stop_after_poll():
-            # Завершаем цикл после первого вызова poll
-            yield False
-            yield True
+        mock_consumer_instance = MagicMock()
+        mock_consumer_instance.poll.side_effect = [mock_message, None]
+        mock_consumer.return_value = mock_consumer_instance
 
-        should_stop_gen = should_stop_after_poll()
+        consume_events(max_iterations=1)
 
-        def should_stop():
-            return next(should_stop_gen)
-
-        logger.debug(f">>> MockConsumer setup: {MockConsumer}")
-        logger.debug(f">>> Mocked poll side effect:{mock_consumer.poll.side_effect}")
-
-        # Вызываем функцию
-        consume_events(should_stop=should_stop)
-
-        # Проверяем вызовы
-        logger.debug(f">>> Checking poll call count:{mock_consumer.poll.call_count}")
-        logger.debug(f">>> Checking process_kafka_event call count:{MockProcessKafkaEvent.delay.call_count}")
-        mock_consumer.poll.assert_called_once()
-        MockProcessKafkaEvent.delay.assert_called_once_with('{"event_type": "test_event", "username": "test_user"}')
+        mock_process_kafka_event.delay.assert_called_once_with(
+            '{"event_id": "123", "event_type": "user_login", "username": "test_user"}'
+        )
 
     @patch("Authentication.kafka_consumer.Consumer")
-    @patch("Authentication.kafka_consumer.logger")
-    def test_consumer_closes_on_exit(self, MockLogger, MockConsumer):
-        """Тест на закрытие Consumer при завершении."""
-        mock_consumer = MagicMock()
-        MockConsumer.return_value = mock_consumer
+    def test_consume_no_message(self, mock_consumer):
+        # Мокаем Consumer.poll, чтобы он возвращал None (нет сообщений)
+        mock_consumer_instance = MagicMock()
+        mock_consumer_instance.poll.return_value = None
+        mock_consumer.return_value = mock_consumer_instance
 
-        def should_stop_after_poll():
-            # Завершаем цикл после первого вызова poll
-            yield False
-            yield True
+        # Запускаем тестируемую функцию
+        with patch("Authentication.kafka_consumer.logger") as mock_logger:
+            consume_events(max_iterations=1)
 
-        should_stop_gen = should_stop_after_poll()
+        # Проверяем, что логгер зафиксировал отсутствие сообщений
+        mock_logger.info.assert_any_call("No message received.")
 
-        def should_stop():
-            return next(should_stop_gen)
+    @patch("Authentication.kafka_consumer.Consumer")
+    def test_consume_message_with_error(self, mock_consumer):
+        # Мокаем сообщение с ошибкой
+        mock_message = MagicMock()
+        mock_message.error.return_value = "Test Error"
 
-        consume_events(should_stop=should_stop)
+        # Мокаем Consumer.poll
+        mock_consumer_instance = MagicMock()
+        mock_consumer_instance.poll.return_value = mock_message
+        mock_consumer.return_value = mock_consumer_instance
 
-        mock_consumer.close.assert_called_once()
+        # Запускаем тестируемую функцию
+        with patch("Authentication.kafka_consumer.logger") as mock_logger:
+            consume_events(max_iterations=1)
+
+        # Проверяем, что логгер зафиксировал ошибку
+        mock_logger.error.assert_any_call("Consumer error: Test Error")
+

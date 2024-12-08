@@ -9,8 +9,10 @@ from Authentication.tasks import process_kafka_event
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-def consume_events(should_stop=lambda: False):
-    logger.info("Kafka consumer starting.")
+
+def consume_events(max_iterations=None):
+    logger.info(f"Kafka bootstrap servers: {os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')}")
+
     consumer_config = {
         'bootstrap.servers': os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092'),
         'group.id': 'django-group',
@@ -23,8 +25,16 @@ def consume_events(should_stop=lambda: False):
         consumer.subscribe(['user-events'])
         logger.info("Consumer subscribed to topics.")
 
-        while not should_stop():
-            logger.info("Polling for messages.")
+
+    iteration = 0
+    try:
+        while True:
+            if max_iterations is not None and iteration >= max_iterations:
+                logger.info("Reached max iterations. Exiting consume loop.")
+                break
+            iteration += 1
+            logger.info("Kafka consumer is consuming messages.")
+
             message = consumer.poll(5.0)
             if message is None:
                 logger.info("No message received.")
