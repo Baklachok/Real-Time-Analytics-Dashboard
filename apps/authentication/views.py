@@ -11,7 +11,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 
-from Authentication.kafka_producer import send_event_to_kafka
+from apps.authentication.kafka_producer import send_event_to_kafka
 
 logger = logging.getLogger(__name__)
 

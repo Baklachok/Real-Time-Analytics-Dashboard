@@ -13,7 +13,7 @@ class TestAnalyticsView(TestCase):
     def setUp(self):
         self.client = APIClient()
 
-    @patch("dashboard.views.r")
+    @patch("apps.dashboard.views.r")
     def test_get_analytics_success(self, mock_redis):
 
         # Подготавливаем mock-данные Redis
@@ -51,7 +51,7 @@ class TestAnalyticsView(TestCase):
         }
         self.assertEqual(response.json(), expected_data)
 
-    @patch("dashboard.views.r")
+    @patch("apps.dashboard.views.r")
     def test_get_analytics_redis_connection_error(self, mock_redis):
         # Вызываем ошибку соединения Redis
         mock_redis.get.side_effect = redis.ConnectionError("Redis is down")
@@ -63,7 +63,7 @@ class TestAnalyticsView(TestCase):
         self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
         self.assertEqual(response.json(), {"error": "Failed to connect to Redis"})
 
-    @patch("dashboard.views.r")
+    @patch("apps.dashboard.views.r")
     def test_get_analytics_general_error(self, mock_redis):
         # Вызываем общую ошибку
         mock_redis.get.side_effect = Exception("Unexpected error")

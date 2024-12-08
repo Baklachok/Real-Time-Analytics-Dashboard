@@ -1,11 +1,11 @@
 import unittest
 from unittest.mock import patch, MagicMock
 
-from Authentication.kafka_producer import send_event_to_kafka
+from apps.authentication.kafka_producer import send_event_to_kafka
 
 
 class KafkaProducerTests(unittest.TestCase):
-    @patch('Authentication.kafka_producer.Producer')  # Указываем путь к Producer
+    @patch('apps.authentication.kafka_producer.Producer')  # Указываем путь к Producer
     def test_send_event_to_kafka(self, MockProducer):
         # Создаем замоканный объект Producer
         mock_producer = MagicMock()
@@ -21,7 +21,7 @@ class KafkaProducerTests(unittest.TestCase):
         mock_producer.produce.assert_called_once_with(topic, value=message)
         mock_producer.flush.assert_called_once()
 
-    @patch("Authentication.kafka_producer.Producer")  # Патчим класс Producer
+    @patch("apps.authentication.kafka_producer.Producer")  # Патчим класс Producer
     def test_send_event_to_kafka_success(self, MockProducer):
         """Тест на успешную отправку сообщения в Kafka."""
         # Создаем замоканный объект Producer
@@ -38,8 +38,8 @@ class KafkaProducerTests(unittest.TestCase):
         mock_producer.produce.assert_called_once_with(topic, value=message)
         mock_producer.flush.assert_called_once()
 
-    @patch("Authentication.kafka_producer.Producer")  # Патчим класс Producer
-    @patch("Authentication.kafka_producer.logger")  # Патчим логгер
+    @patch("apps.authentication.kafka_producer.Producer")  # Патчим класс Producer
+    @patch("apps.authentication.kafka_producer.logger")  # Патчим логгер
     def test_send_event_to_kafka_failure(self, MockLogger, MockProducer):
         """Тест на обработку исключений при отправке сообщения в Kafka."""
         # Создаем замоканный объект Producer, который выбрасывает исключение
@@ -56,8 +56,8 @@ class KafkaProducerTests(unittest.TestCase):
         # Проверяем, что logger.error был вызван с ожидаемым сообщением
         MockLogger.error.assert_called_once_with("Error sending message to Kafka: Kafka error")
 
-    @patch("Authentication.kafka_producer.Producer")  # Патчим класс Producer
-    @patch("Authentication.kafka_producer.os.getenv")  # Патчим os.getenv
+    @patch("apps.authentication.kafka_producer.Producer")  # Патчим класс Producer
+    @patch("apps.authentication.kafka_producer.os.getenv")  # Патчим os.getenv
     def test_send_event_to_kafka_custom_bootstrap_servers(self, MockGetenv, MockProducer):
         """Тест на проверку пользовательского значения bootstrap.servers."""
         # Подготавливаем mock для os.getenv

@@ -50,7 +50,7 @@ services:
   kafka_consumer:
     image: baklachok/analytics_project:latest
     container_name: kafka_consumer
-    command: python manage.py shell -c "from Authentication.kafka_consumer import consume_events; consume_events()"
+    command: python manage.py shell -c "from apps.authentication.kafka_consumer import consume_events; consume_events()"
     env_file: .env
     depends_on:
       - backend

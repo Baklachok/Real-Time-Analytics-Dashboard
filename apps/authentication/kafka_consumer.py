@@ -4,7 +4,7 @@ import os
 from confluent_kafka import Consumer
 from dotenv import load_dotenv
 
-from Authentication.tasks import process_kafka_event
+from apps.authentication.tasks import process_kafka_event
 
 load_dotenv()
 logger = logging.getLogger(__name__)

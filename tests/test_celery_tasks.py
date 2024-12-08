@@ -4,19 +4,19 @@ from unittest.mock import patch, MagicMock
 
 import redis
 
-from Authentication.tasks import process_kafka_event
+from apps.authentication.tasks import process_kafka_event
 
 
 @pytest.fixture
 def mock_redis(mocker):
     """Fixture для мокирования Redis."""
-    return mocker.patch("Authentication.tasks.r")
+    return mocker.patch("apps.authentication.tasks.r")
 
 
 @pytest.fixture
 def mock_logger(mocker):
     """Fixture для мокирования логгера."""
-    return mocker.patch("Authentication.tasks.logger")
+    return mocker.patch("apps.authentication.tasks.logger")
 
 
 def test_process_kafka_event_user_registration(mock_redis, mock_logger):
