@@ -4,7 +4,7 @@ import os
 from confluent_kafka import Consumer
 from dotenv import load_dotenv
 
-from apps.authentication.tasks import process_kafka_event
+from apps.Authentication.tasks import process_kafka_event
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -42,5 +42,6 @@ def consume_events(max_iterations=None):
             logger.info(f"Message received from Kafka: {message.value().decode('utf-8')}")
             process_kafka_event.delay(message.value().decode('utf-8'))
     finally:
+        logger.info("Closing consumer.")
         consumer.close()
 
