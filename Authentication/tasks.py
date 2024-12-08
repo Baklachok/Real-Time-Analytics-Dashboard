@@ -29,6 +29,10 @@ def process_kafka_event(event_data):
         elif event_type == "user_logout":
             r.incr(f"user_logout_count:{username}")
             logger.info(f"Incremented user_logout_count for {username}")
+        else:
+            # Логируем ошибку для неизвестного типа события
+            logger.error("Invalid event data")
+            return
 
     except redis.ConnectionError as e:
         logger.error(f"Redis connection error: {e}")
