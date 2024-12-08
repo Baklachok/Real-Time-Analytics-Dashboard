@@ -1,3 +1,4 @@
+
 import unittest
 from unittest.mock import patch, MagicMock
 from Authentication.kafka_consumer import consume_events
@@ -52,3 +53,4 @@ class TestKafkaConsumer(unittest.TestCase):
 
         # Проверяем, что логгер зафиксировал ошибку
         mock_logger.error.assert_any_call("Consumer error: Test Error")
+

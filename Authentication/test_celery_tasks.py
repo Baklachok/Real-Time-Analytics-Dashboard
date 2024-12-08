@@ -1,4 +1,5 @@
 import json
+
 import pytest
 from unittest.mock import patch, MagicMock
 
@@ -74,3 +75,4 @@ def test_process_kafka_event_json_decode_error(mock_redis, mock_logger):
     mock_redis.incr.assert_not_called()
     # Проверяем, что логгер зафиксировал ошибку парсинга JSON
     mock_logger.error.assert_called_once_with("Failed to parse event data: Expecting value: line 1 column 1 (char 0)")
+
