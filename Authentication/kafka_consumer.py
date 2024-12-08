@@ -9,7 +9,7 @@ from Authentication.tasks import process_kafka_event
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-def consume_events():
+def consume_events(max_iterations=None):
     logger.info(f"Kafka bootstrap servers: {os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')}")
     consumer_config = {
         'bootstrap.servers': os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092'),
@@ -23,8 +23,13 @@ def consume_events():
     except Exception as e:
         logger.error(f"Failed to subscribe to Kafka topic: {e}")
 
+    iteration = 0
     try:
         while True:
+            if max_iterations is not None and iteration >= max_iterations:
+                logger.info("Reached max iterations. Exiting consume loop.")
+                break
+            iteration += 1
             logger.info("Kafka consumer is consuming messages.")
             message = consumer.poll(5.0)
             if message is None:
